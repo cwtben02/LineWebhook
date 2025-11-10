@@ -9,16 +9,21 @@ const config = {
 
 const app = express();
 
-// ✅ 重要：LINE middleware 要放在 JSON parser 之前！
-app.post('/webhook', line.middleware(config), (req, res) => {
-  console.log('✅ Received events:', req.body.events);
-  res.status(200).end();
-});
+// ✅ LINE Webhook 路由（必須使用 raw parser）
+app.post(
+  '/webhook',
+  express.raw({ type: 'application/json' }), // 保留原始資料供 LINE 驗簽名
+  line.middleware(config),
+  (req, res) => {
+    console.log('✅ Received events:', req.body.events);
+    res.status(200).end();
+  }
+);
 
-// 其他路由可以再加 JSON parser
+// 其他一般路由再用 JSON parser
 app.use(express.json());
 
-// Render 的健康檢查路徑
+// Render 健康檢查
 app.get('/healthz', (req, res) => {
   res.status(200).send('OK');
 });
