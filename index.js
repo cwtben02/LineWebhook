@@ -1,46 +1,40 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
 
-// === LINE Bot 設定 ===
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET,
+  channelSecret: process.env.LINE_CHANNEL_SECRET
 };
 
+const client = new line.Client(config);
 const app = express();
 
-// ⚠️ 重要：LINE middleware 要在 express.json() 之前處理 LINE 的驗證
-app.post('/webhook', line.middleware(config), (req, res) => {
-  console.log('✅ Received LINE events:', req.body.events);
-  res.status(200).end();
-});
-
-// === 其他 API 要用 JSON Parser ===
 app.use(express.json());
 
-// === 忘記密碼 API ===
-app.post('/api/password/forgot', (req, res) => {
-  const { username } = req.body;
+// ✅ 接收系統重設通知的 API
+app.post('/api/send-reset', async (req, res) => {
+  const { userId, code } = req.body;
 
-  if (!username) {
-    return res.status(400).json({ error: '缺少 username 參數' });
+  if (!userId || !code) {
+    return res.status(400).send('Missing userId or code');
   }
 
-  console.log(`🔐 收到忘記密碼請求：${username}`);
+  try {
+    await client.pushMessage(userId, {
+      type: 'text',
+      text: `已收到申請重設通知，重設碼：${code}\n請於時限2分鐘內完成(請注意您重設次數已達上限)`
+    });
 
-  // 👉 這裡可以加入實際邏輯，例如寄信、更新資料庫
-  res.json({
-    message: `已收到使用者 ${username} 的密碼重設請求（目前為模擬回覆）`,
-  });
+    res.status(200).send('Message sent successfully');
+  } catch (error) {
+    console.error('❌ LINE pushMessage error:', error);
+    res.status(500).send('Failed to send LINE message');
+  }
 });
 
-// === Render 健康檢查 ===
-app.get('/healthz', (req, res) => {
-  res.status(200).send('OK');
-});
+// ✅ health check（Render 用）
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
-// === 啟動伺服器 ===
+// ✅ 啟動伺服器
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`✅ Server is running and listening on port ${port}`);
-});
+app.listen(port, () => console.log(`✅ Server running on port ${port}`));
