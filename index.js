@@ -1,28 +1,39 @@
 const express = require('express');
 const line = require('@line/bot-sdk');
 
-// 設定 LINE Channel 金鑰（從環境變數讀取）
+// 🧩 1️⃣ 讀取環境變數
 const config = {
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN,
-  channelSecret: process.env.LINE_CHANNEL_SECRET
+  channelSecret: process.env.LINE_CHANNEL_SECRET,
 };
 
-const app = express();
-app.use(express.json()); // ← 重要！讓 Express 能解析 LINE 傳來的 JSON
+// 🧩 2️⃣ 防呆：檢查變數是否存在
+if (!config.channelAccessToken || !config.channelSecret) {
+  console.error('❌ Missing LINE channel credentials. Please check environment variables.');
+  process.exit(1);
+}
 
-// LINE Webhook 接收事件
-app.post('/webhook', line.middleware(config), (req, res) => {
-  console.log('Received events:', req.body.events);
-  res.status(200).end();
+const app = express();
+app.use(express.json()); // 讓 Express 解析 JSON
+
+// 🧩 3️⃣ LINE Webhook 接收事件
+app.post('/webhook', line.middleware(config), async (req, res) => {
+  try {
+    console.log('✅ Received events:', JSON.stringify(req.body.events, null, 2));
+    res.status(200).end(); // 回應 200 給 LINE（必要）
+  } catch (error) {
+    console.error('❌ Error handling webhook:', error);
+    res.status(500).end();
+  }
 });
 
-// Render 的健康檢查路徑
+// 🧩 4️⃣ Render 健康檢查用
 app.get('/healthz', (req, res) => {
   res.status(200).send('OK');
 });
 
-// 使用 Render 提供的 PORT
+// 🧩 5️⃣ 啟動伺服器
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`✅ Server is running and listening on port ${port}`);
+  console.log(`🚀 Server is running on port ${port}`);
 });
